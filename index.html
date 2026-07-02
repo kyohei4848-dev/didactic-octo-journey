@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram風 擬似スクロールツール</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* 背景をインスタのダークモード風に */
+        body {
+            background-color: #000000;
+            color: #f5f5f5;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        /* 設定エリア（画像選択とテキスト入力） */
+        .config-area {
+            width: 100%;
+            max-width: 450px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* 画像選択ボタン */
+        .file-label {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: #0095f6;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .file-label:hover {
+            background: #1877f2;
+        }
+        #image-uploader {
+            display: none;
+        }
+
+        /* 投稿内容（本文）の手動入力欄 */
+        .caption-input {
+            width: 100%;
+            height: 70px;
+            background: #121212;
+            border: 1px solid #262626;
+            border-radius: 8px;
+            color: #fff;
+            padding: 10px;
+            font-size: 14px;
+            resize: none;
+        }
+        .caption-input::placeholder {
+            color: #737373;
+        }
+
+        /* Instagram風 投稿枠 */
+        .instagram-mock {
+            background: #000000;
+            border: 1px solid #262626;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 450px;
+            position: relative;
+        }
+
+        /* ヘッダー（左寄せ） */
+        .mock-header {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start; /* 左寄せ */
+            padding: 12px;
+        }
+        .user-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #262626;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 10px; /* アイコンの右側に余白 */
+            color: #fff;
+        }
+        .mock-username {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        /* カルーセル（画像表示エリア） */
+        .carousel-viewport {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            position: relative;
+            background-color: #000;
+            overflow: hidden;
+        }
+
+        .carousel-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: smooth;
+        }
+        /* スクロールバー非表示 */
+        .carousel-container::-webkit-scrollbar {
+            display: none;
+        }
+        .carousel-container {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .slide-item {
+            flex: 0 0 100%;
+            width: 100%;
+            height: 100%;
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .slide-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* 右上のページ数バッジ (1/8) */
+        .badge-counter {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: rgba(26, 26, 26, 0.8);
+            color: #ffffff;
+            padding: 4px 9px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 10;
+            display: none;
+        }
+
+        /* 左右の手動切り替えボタン */
+        .nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.75);
+            color: #000;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 10;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            transition: background 0.2s;
+        }
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 1);
+        }
+        .nav-prev { left: 12px; }
+        .nav-next { right: 12px; }
+
+        /* 下部エリア（ドットと本文テキスト） */
+        .mock-footer {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .dots-box {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            min-height: 8px;
+        }
+        .indicator-dot {
+            width: 6px;
+            height: 6px;
+            background-color: #555555;
+            border-radius: 50%;
+            transition: background-color 0.2s;
+        }
+        .indicator-dot.active {
+            background-color: #0095f6;
+        }
+
+        /* キャプション本文表示（左寄せ） */
+        .post-caption-text {
+            font-size: 14px;
+            line-height: 1.5;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            text-align: left; /* 左寄せ */
+        }
+        .caption-username {
+            font-weight: 600;
+            margin-right: 8px; /* ユーザー名と本文の間の余白 */
+        }
+
+        .empty-placeholder {
+            color: #737373;
+            font-size: 14px;
+            text-align: center;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="config-area">
+        <label for="image-uploader" class="file-label">画像を選択して疑似体験（複数可）</label>
+        <input type="file" id="image-uploader" accept="image/*" multiple>
+        
+        <textarea id="text-input" class="caption-input" placeholder="ここに投稿内容（本文テキストやハッシュタグ）を入力するとリアルタイムで下に反映されます..."></textarea>
+    </div>
+
+    <div class="instagram-mock">
+        <div class="mock-header">
+            <div class="user-icon">T</div>
+            <span class="mock-username">Test_Instagram</span>
+        </div>
+
+        <div class="carousel-viewport">
+            <div class="badge-counter" id="badge-counter">1/1</div>
+            
+            <button class="nav-btn nav-prev" id="nav-prev">‹</button>
+            <button class="nav-btn nav-next" id="nav-next">›</button>
+
+            <div class="carousel-container" id="carousel-container">
+                <div class="slide-item">
+                    <div class="empty-placeholder">上のボタンから画像を<br>まとめて選択してください</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mock-footer">
+            <div class="dots-box" id="dots-box"></div>
+            
+            <div class="post-caption-text">
+                <span class="caption-username">Test_Instagram</span><span id="disp-caption"></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploader = document.getElementById('image-uploader');
+        const container = document.getElementById('carousel-container');
+        const badge = document.getElementById('badge-counter');
+        const dotsBox = document.getElementById('dots-box');
+        const btnPrev = document.getElementById('nav-prev');
+        const btnNext = document.getElementById('nav-next');
+        
+        const textInput = document.getElementById('text-input');
+        const dispCaption = document.getElementById('disp-caption');
+
+        let totalSlides = 0;
+
+        textInput.addEventListener('input', () => {
+            dispCaption.textContent = textInput.value;
+        });
+
+        uploader.addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            container.innerHTML = ''; 
+            dotsBox.innerHTML = '';    
+            
+            totalSlides = files.length;
+            badge.style.display = 'block';
+            badge.textContent = `1/${totalSlides}`;
+
+            if (totalSlides > 1) {
+                btnPrev.style.display = 'flex';
+                btnNext.style.display = 'flex';
+            } else {
+                btnPrev.style.display = 'none';
+                btnNext.style.display = 'none';
+            }
+
+            files.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    const item = document.createElement('div');
+                    item.className = 'slide-item';
+                    
+                    const img = document.createElement('img');
+                    img.src = evt.target.result;
+                    
+                    item.appendChild(img);
+                    container.appendChild(item);
+
+                    const dot = document.createElement('div');
+                    dot.className = `indicator-dot ${index === 0 ? 'active' : ''}`;
+                    dotsBox.appendChild(dot);
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+
+        btnPrev.addEventListener('click', () => {
+            container.scrollLeft -= container.clientWidth;
+        });
+
+        btnNext.addEventListener('click', () => {
+            container.scrollLeft += container.clientWidth;
+        });
+
+        container.addEventListener('scroll', () => {
+            const viewWidth = container.clientWidth;
+            if (viewWidth === 0) return;
+            
+            const currentIdx = Math.round(container.scrollLeft / viewWidth);
+
+            badge.textContent = `${currentIdx + 1}/${totalSlides}`;
+
+            const dots = dotsBox.querySelectorAll('.indicator-dot');
+            dots.forEach((dot, idx) => {
+                if (idx === currentIdx) {
+                    dot.classList.add('active');
+                } else {
+                    dot.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
